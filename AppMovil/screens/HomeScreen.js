@@ -6,7 +6,7 @@ const HomeScreen = () => {
     const navigation = useNavigation();
     return (
         <ImageBackground
-            source={require('./assets/fondo_inicio.jpg')}
+            source={require('../assets/fondo_inicio.jpg')}
             style={styles.background}
             resizeMode="cover"
         >
