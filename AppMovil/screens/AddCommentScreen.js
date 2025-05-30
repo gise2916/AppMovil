@@ -1,108 +1,186 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Alert, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Importa AsyncStorage
-import * as Sharing from 'expo-sharing'; // Importa expo-sharing
+import React, { useState, useEffect, useCallback } from 'react'; // Agregamos useCallback
+import {
+    View,
+    Text,
+    TextInput,
+    Alert,
+    StyleSheet,
+    FlatList,
+    TouchableOpacity,
+    Image,
+    Platform,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Sharing from 'expo-sharing';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system'; // ¡Importa FileSystem!
 
-const COMMENTS_KEY = '@app_comments'; // Clave para AsyncStorage
+const COMMENTS_KEY = '@app_comments';
 
 const AddCommentScreen = ({ navigation }) => {
     const [commentText, setCommentText] = useState('');
-    const [comments, setComments] = useState([]); // Nuevo estado para los comentarios guardados
+    const [comments, setComments] = useState([]);
+    const [selectedImage, setSelectedImage] = useState(null);
 
-    // --- Funciones para AsyncStorage ---
-
-    // Cargar comentarios al iniciar la pantalla
-    useEffect(() => {
-        loadComments();
-    }, []);
-
-    const loadComments = async () => {
+    // Usa useCallback para memorizar funciones y evitar re-renders innecesarios
+    const loadComments = useCallback(async () => {
         try {
             const storedComments = await AsyncStorage.getItem(COMMENTS_KEY);
-            if (storedComments !== null) {
-                setComments(JSON.parse(storedComments)); // Parsea los comentarios y los establece
-            }
+            setComments(storedComments ? JSON.parse(storedComments) : []);
         } catch (error) {
-            console.error("Error al cargar comentarios:", error);
-            Alert.alert("Error", "No se pudieron cargar los comentarios.");
+            console.error('Error al cargar comentarios:', error);
+            Alert.alert('Error', 'No se pudieron cargar los comentarios.');
         }
-    };
+    }, []); // Dependencias vacías, solo se crea una vez
 
-    // Guardar un nuevo comentario
-    const handleSaveComment = async () => {
-        if (commentText.trim()) {
-            try {
-                const newComment = {
-                    id: Date.now().toString(), // ID único para el comentario
-                    text: commentText.trim(),
-                    date: new Date().toLocaleDateString('es-ES'), // Fecha actual
-                };
-                const updatedComments = [...comments, newComment]; // Agrega el nuevo comentario a la lista
-                await AsyncStorage.setItem(COMMENTS_KEY, JSON.stringify(updatedComments)); // Guarda en AsyncStorage
-                setComments(updatedComments); // Actualiza el estado
-                setCommentText(''); // Limpia el campo de texto
-                Alert.alert("Éxito", "Comentario guardado.");
-            } catch (error) {
-                console.error("Error al guardar comentario:", error);
-                Alert.alert("Error", "No se pudo guardar el comentario.");
+    useEffect(() => {
+        loadComments();
+
+        const requestPermissions = async () => {
+            if (Platform.OS !== 'web') {
+                const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                if (status !== 'granted') {
+                    Alert.alert('Permiso requerido', 'Necesitamos acceso a tu galería para añadir fotos.');
+                }
             }
-        } else {
+        };
+        requestPermissions();
+    }, [loadComments]); // Dependencia de loadComments
+
+    const pickImage = useCallback(async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.7, // Ajusta la calidad para optimizar el tamaño del archivo
+        });
+
+        if (!result.canceled) {
+            setSelectedImage(result.assets[0].uri);
+        }
+    }, []);
+
+    const handleSaveComment = useCallback(async () => {
+        if (!commentText.trim()) {
             Alert.alert('Atención', 'Por favor, escribe un comentario.');
+            return;
         }
-    };
 
-    // --- Función para compartir ---
-    const handleShareComment = async (commentToShare) => {
-        if (await Sharing.isAvailableAsync()) {
+        try {
+            const newComment = {
+                id: Date.now().toString(),
+                text: commentText.trim(),
+                date: new Date().toLocaleDateString('es-ES'),
+                imageUri: selectedImage,
+            };
+            const updatedComments = [...comments, newComment];
+            await AsyncStorage.setItem(COMMENTS_KEY, JSON.stringify(updatedComments));
+            setComments(updatedComments);
+            setCommentText('');
+            setSelectedImage(null);
+            Alert.alert('Éxito', 'Comentario y foto guardados.');
+        } catch (error) {
+            console.error('Error al guardar comentario:', error);
+            Alert.alert('Error', 'No se pudo guardar el comentario.');
+        }
+    }, [commentText, comments, selectedImage]); // Dependencias para re-crear si cambian
+
+    const handleShareComment = useCallback(async (commentToShare) => {
+        if (!(await Sharing.isAvailableAsync())) {
+            Alert.alert('Error', 'La función de compartir no está disponible en este dispositivo.');
+            return;
+        }
+
+        let shareContent = `¡Echa un vistazo a mi experiencia de senderismo!\n\n"${commentToShare.text}"\n\nFecha: ${commentToShare.date}\n\n#SenderismoApp #Aventura`;
+        let options = {
+            mimeType: 'text/plain',
+            dialogTitle: 'Compartir experiencia de senderismo',
+        };
+
+        if (commentToShare.imageUri) {
             try {
-                await Sharing.shareAsync(`Mi experiencia de senderismo: "${commentToShare.text}" (Fecha: ${commentToShare.date}) #SenderismoApp`);
-            } catch (error) {
-                console.error("Error al compartir:", error);
-                Alert.alert("Error", "No se pudo compartir el comentario.");
+                // Copia la imagen a un directorio cacheado para asegurar que Sharing.shareAsync pueda accederla.
+                // Esto es crucial para URIs como content:// en Android.
+                const fileName = commentToShare.imageUri.split('/').pop();
+                const cacheUri = FileSystem.cacheDirectory + fileName;
+
+                // Descarga o copia la imagen a la caché si aún no está allí
+                const fileInfo = await FileSystem.getInfoAsync(cacheUri);
+                if (!fileInfo.exists) {
+                    await FileSystem.copyAsync({
+                        from: commentToShare.imageUri,
+                        to: cacheUri,
+                    });
+                }
+
+                await Sharing.shareAsync(cacheUri, {
+                    ...options,
+                    mimeType: 'image/jpeg', // Ajusta si sabes que es PNG u otro
+                    UTI: 'public.jpeg', // Para iOS
+                    text: shareContent,
+                });
+            } catch (shareError) {
+                console.warn('Fallo al compartir imagen, intentando solo texto:', shareError);
+                // Si compartir la imagen falla, intenta compartir solo el texto
+                await Sharing.shareAsync(shareContent, options);
             }
         } else {
-            Alert.alert('Error', 'La función de compartir no está disponible en este dispositivo.');
+            // Si no hay imagen, comparte solo el texto
+            await Sharing.shareAsync(shareContent, options);
         }
-    };
+    }, []); // Dependencias vacías, no depende de props o estados mutables directamente
 
-    // --- Función para eliminar un comentario (opcional, pero útil) ---
-    const handleDeleteComment = async (idToDelete) => {
+    const handleDeleteComment = useCallback(async (idToDelete) => {
         Alert.alert(
-            "Eliminar Comentario",
-            "¿Estás seguro de que quieres eliminar este comentario?",
+            'Eliminar Comentario',
+            '¿Estás seguro de que quieres eliminar este comentario?',
             [
-                { text: "Cancelar", style: "cancel" },
+                { text: 'Cancelar', style: 'cancel' },
                 {
-                    text: "Eliminar",
+                    text: 'Eliminar',
                     onPress: async () => {
                         try {
-                            const filteredComments = comments.filter(comment => comment.id !== idToDelete);
+                            const filteredComments = comments.filter((comment) => comment.id !== idToDelete);
                             await AsyncStorage.setItem(COMMENTS_KEY, JSON.stringify(filteredComments));
                             setComments(filteredComments);
-                            Alert.alert("Éxito", "Comentario eliminado.");
+                            Alert.alert('Éxito', 'Comentario eliminado.');
                         } catch (error) {
-                            console.error("Error al eliminar comentario:", error);
-                            Alert.alert("Error", "No se pudo eliminar el comentario.");
+                            console.error('Error al eliminar comentario:', error);
+                            Alert.alert('Error', 'No se pudo eliminar el comentario.');
                         }
                     },
-                    style: "destructive"
-                }
-            ]
+                    style: 'destructive',
+                },
+            ],
         );
-    };
-
+    }, [comments]); // Depende de 'comments' para filtrar correctamente
 
     return (
         <View style={styles.container}>
             <Text style={styles.title}>Comenta tu Experiencia</Text>
+
             <TextInput
                 style={styles.input}
                 placeholder="Escribe tu experiencia aquí..."
                 multiline
                 value={commentText}
                 onChangeText={setCommentText}
-                maxLength={500} // Limita la longitud del comentario
+                maxLength={500}
             />
+
+            <TouchableOpacity style={styles.selectImageButton} onPress={pickImage}>
+                <Text style={styles.selectImageButtonText}>Seleccionar Foto</Text>
+            </TouchableOpacity>
+
+            {selectedImage && (
+                <View style={styles.imagePreviewContainer}>
+                    <Image source={{ uri: selectedImage }} style={styles.imagePreview} />
+                    <TouchableOpacity onPress={() => setSelectedImage(null)} style={styles.clearImageButton}>
+                        <Text style={styles.clearImageButtonText}>X</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+
             <TouchableOpacity style={styles.saveButton} onPress={handleSaveComment}>
                 <Text style={styles.saveButtonText}>Guardar Comentario</Text>
             </TouchableOpacity>
@@ -118,6 +196,7 @@ const AddCommentScreen = ({ navigation }) => {
                         <View style={styles.commentItem}>
                             <Text style={styles.commentDate}>{item.date}</Text>
                             <Text style={styles.commentText}>{item.text}</Text>
+                            {item.imageUri && <Image source={{ uri: item.imageUri }} style={styles.commentImage} />}
                             <View style={styles.commentActions}>
                                 <TouchableOpacity style={styles.shareButton} onPress={() => handleShareComment(item)}>
                                     <Text style={styles.shareButtonText}>Compartir</Text>
@@ -128,6 +207,8 @@ const AddCommentScreen = ({ navigation }) => {
                             </View>
                         </View>
                     )}
+                    ItemSeparatorComponent={() => <View style={styles.commentSeparator} />}
+                    contentContainerStyle={styles.flatListContent}
                 />
             )}
         </View>
@@ -138,14 +219,14 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 20,
-        backgroundColor: '#E0F2E0', // Fondo verde claro
+        backgroundColor: '#E0F2E0',
     },
     title: {
         fontSize: 28,
         fontWeight: 'bold',
         marginBottom: 20,
         textAlign: 'center',
-        color: '#2E8B57', // Verde oscuro
+        color: '#2E8B57',
     },
     subtitle: {
         fontSize: 20,
@@ -156,23 +237,70 @@ const styles = StyleSheet.create({
     },
     input: {
         borderWidth: 1,
-        borderColor: '#ADD8E6', // Borde azul claro
+        borderColor: '#ADD8E6',
         borderRadius: 10,
         padding: 15,
-        marginBottom: 20,
-        minHeight: 100, // Altura mínima para el área de texto
-        textAlignVertical: 'top', // Para que el texto empiece arriba en Android
+        marginBottom: 10,
+        minHeight: 100,
+        textAlignVertical: 'top',
         fontSize: 16,
-        backgroundColor: '#FFFFFF', // Fondo blanco
+        backgroundColor: '#FFFFFF',
         color: '#333333',
-        shadowColor: '#000', // Sombra
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 3,
         elevation: 3,
     },
+    selectImageButton: {
+        backgroundColor: '#8BC34A',
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 10,
+        alignItems: 'center',
+        marginBottom: 15,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
+    },
+    selectImageButtonText: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    imagePreviewContainer: {
+        marginBottom: 15,
+        alignItems: 'center',
+        position: 'relative',
+    },
+    imagePreview: {
+        width: '100%',
+        height: 200,
+        borderRadius: 10,
+        resizeMode: 'cover',
+        borderWidth: 1,
+        borderColor: '#D3D3D3',
+    },
+    clearImageButton: {
+        position: 'absolute',
+        top: 5,
+        right: 5,
+        backgroundColor: 'rgba(255,0,0,0.7)',
+        borderRadius: 15,
+        width: 30,
+        height: 30,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    clearImageButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
     saveButton: {
-        backgroundColor: '#4CAF50', // Verde vibrante
+        backgroundColor: '#4CAF50',
         paddingVertical: 12,
         paddingHorizontal: 20,
         borderRadius: 10,
@@ -190,12 +318,11 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     commentItem: {
-        backgroundColor: '#FFFFFF', // Fondo blanco para cada comentario
+        backgroundColor: '#FFFFFF',
         padding: 15,
-        marginBottom: 10,
         borderRadius: 10,
         borderWidth: 1,
-        borderColor: '#D3D3D3', // Borde gris claro
+        borderColor: '#D3D3D3',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.08,
@@ -213,13 +340,20 @@ const styles = StyleSheet.create({
         color: '#333',
         marginBottom: 10,
     },
+    commentImage: {
+        width: '100%',
+        height: 180,
+        borderRadius: 8,
+        marginTop: 10,
+        resizeMode: 'contain',
+    },
     commentActions: {
         flexDirection: 'row',
-        justifyContent: 'flex-end', // Alinea botones a la derecha
+        justifyContent: 'flex-end',
         marginTop: 10,
     },
     shareButton: {
-        backgroundColor: '#1DA1F2', // Azul para compartir (ej. Twitter)
+        backgroundColor: '#8BC34A',
         paddingVertical: 8,
         paddingHorizontal: 12,
         borderRadius: 8,
@@ -231,7 +365,7 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     deleteButton: {
-        backgroundColor: '#FF6347', // Rojo para eliminar
+        backgroundColor: '#FF6347',
         paddingVertical: 8,
         paddingHorizontal: 12,
         borderRadius: 8,
@@ -247,6 +381,12 @@ const styles = StyleSheet.create({
         fontStyle: 'italic',
         color: '#666',
         marginTop: 20,
+    },
+    commentSeparator: {
+        height: 15,
+    },
+    flatListContent: {
+        paddingBottom: 20,
     },
 });
 
