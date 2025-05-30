@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from './screens/HomeScreen';
+import MapScreen from './screens/MapScreen';
 import PlacesScreen from './screens/PlacesScreen';
 import AddCommentScreen from './screens/AddCommentScreen';
 
@@ -14,8 +15,9 @@ const App = () => {
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Senderismo">
         <Stack.Screen name="Senderismo" component={HomeScreen} options={{ title: 'SENDERISMO' }} />
+        <Stack.Screen name="Ubicación" component={MapScreen} options={{ title: 'UBICACION ACTUAL' }} />
         <Stack.Screen name="Lugares" component={PlacesScreen} options={{ title: 'LUGARES' }} />
-        <Stack.Screen name="Comentarios" component={AddCommentScreen} options={{ title: 'AGREGAR COMENTARIO' }} />
+        <Stack.Screen name="Comenta_tu_Experiencia" component={AddCommentScreen} options={{ title: 'COMENTA TU EXPERIENCIA' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
