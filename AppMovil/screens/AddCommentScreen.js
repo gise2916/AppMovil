@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
+    ScrollView,
     Text,
     TextInput,
     Alert,
@@ -9,6 +10,7 @@ import {
     TouchableOpacity,
     Image,
     Platform,
+
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Sharing from 'expo-sharing';
@@ -21,6 +23,7 @@ const AddCommentScreen = ({ navigation }) => {
     const [commentText, setCommentText] = useState('');
     const [comments, setComments] = useState([]);
     const [selectedImage, setSelectedImage] = useState(null);
+
     const loadComments = useCallback(async () => {
         try {
             const storedComments = await AsyncStorage.getItem(COMMENTS_KEY);
@@ -43,14 +46,14 @@ const AddCommentScreen = ({ navigation }) => {
             }
         };
         requestPermissions();
-    }, [loadComments]); // Dependencia de loadComments
+    }, [loadComments]);
 
     const pickImage = useCallback(async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
             aspect: [4, 3],
-            quality: 0.7, // Ajusta la calidad para optimizar el tamaño del archivo
+            quality: 0.7,
         });
 
         if (!result.canceled) {
@@ -82,6 +85,7 @@ const AddCommentScreen = ({ navigation }) => {
             Alert.alert('Error', 'No se pudo guardar el comentario.');
         }
     }, [commentText, comments, selectedImage]);
+
     const handleShareComment = useCallback(async (commentToShare) => {
         if (!(await Sharing.isAvailableAsync())) {
             Alert.alert('Error', 'La función de compartir no está disponible en este dispositivo.');
@@ -117,7 +121,6 @@ const AddCommentScreen = ({ navigation }) => {
                 await Sharing.shareAsync(shareContent, options);
             }
         } else {
-
             await Sharing.shareAsync(shareContent, options);
         }
     }, []);
@@ -148,7 +151,7 @@ const AddCommentScreen = ({ navigation }) => {
     }, [comments]);
 
     return (
-        <View style={styles.container}>
+        <ScrollView style={styles.container}>
             <Text style={styles.title}>Comenta tu Experiencia</Text>
 
             <TextInput
@@ -201,9 +204,9 @@ const AddCommentScreen = ({ navigation }) => {
                     )}
                     ItemSeparatorComponent={() => <View style={styles.commentSeparator} />}
                     contentContainerStyle={styles.flatListContent}
-                />
+                    scrollEnabled={false} />
             )}
-        </View>
+        </ScrollView>
     );
 };
 
