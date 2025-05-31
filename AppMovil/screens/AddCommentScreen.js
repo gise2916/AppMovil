@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'; // Agregamos useCallback
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
@@ -13,7 +13,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Sharing from 'expo-sharing';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system'; // ¡Importa FileSystem!
+import * as FileSystem from 'expo-file-system';
 
 const COMMENTS_KEY = '@app_comments';
 
@@ -21,8 +21,6 @@ const AddCommentScreen = ({ navigation }) => {
     const [commentText, setCommentText] = useState('');
     const [comments, setComments] = useState([]);
     const [selectedImage, setSelectedImage] = useState(null);
-
-    // Usa useCallback para memorizar funciones y evitar re-renders innecesarios
     const loadComments = useCallback(async () => {
         try {
             const storedComments = await AsyncStorage.getItem(COMMENTS_KEY);
@@ -31,7 +29,7 @@ const AddCommentScreen = ({ navigation }) => {
             console.error('Error al cargar comentarios:', error);
             Alert.alert('Error', 'No se pudieron cargar los comentarios.');
         }
-    }, []); // Dependencias vacías, solo se crea una vez
+    }, []);
 
     useEffect(() => {
         loadComments();
@@ -83,8 +81,7 @@ const AddCommentScreen = ({ navigation }) => {
             console.error('Error al guardar comentario:', error);
             Alert.alert('Error', 'No se pudo guardar el comentario.');
         }
-    }, [commentText, comments, selectedImage]); // Dependencias para re-crear si cambian
-
+    }, [commentText, comments, selectedImage]);
     const handleShareComment = useCallback(async (commentToShare) => {
         if (!(await Sharing.isAvailableAsync())) {
             Alert.alert('Error', 'La función de compartir no está disponible en este dispositivo.');
@@ -99,12 +96,8 @@ const AddCommentScreen = ({ navigation }) => {
 
         if (commentToShare.imageUri) {
             try {
-                // Copia la imagen a un directorio cacheado para asegurar que Sharing.shareAsync pueda accederla.
-                // Esto es crucial para URIs como content:// en Android.
                 const fileName = commentToShare.imageUri.split('/').pop();
                 const cacheUri = FileSystem.cacheDirectory + fileName;
-
-                // Descarga o copia la imagen a la caché si aún no está allí
                 const fileInfo = await FileSystem.getInfoAsync(cacheUri);
                 if (!fileInfo.exists) {
                     await FileSystem.copyAsync({
@@ -115,20 +108,19 @@ const AddCommentScreen = ({ navigation }) => {
 
                 await Sharing.shareAsync(cacheUri, {
                     ...options,
-                    mimeType: 'image/jpeg', // Ajusta si sabes que es PNG u otro
-                    UTI: 'public.jpeg', // Para iOS
+                    mimeType: 'image/jpeg',
+                    UTI: 'public.jpeg',
                     text: shareContent,
                 });
             } catch (shareError) {
                 console.warn('Fallo al compartir imagen, intentando solo texto:', shareError);
-                // Si compartir la imagen falla, intenta compartir solo el texto
                 await Sharing.shareAsync(shareContent, options);
             }
         } else {
-            // Si no hay imagen, comparte solo el texto
+
             await Sharing.shareAsync(shareContent, options);
         }
-    }, []); // Dependencias vacías, no depende de props o estados mutables directamente
+    }, []);
 
     const handleDeleteComment = useCallback(async (idToDelete) => {
         Alert.alert(
@@ -153,7 +145,7 @@ const AddCommentScreen = ({ navigation }) => {
                 },
             ],
         );
-    }, [comments]); // Depende de 'comments' para filtrar correctamente
+    }, [comments]);
 
     return (
         <View style={styles.container}>

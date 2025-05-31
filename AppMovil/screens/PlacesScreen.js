@@ -1,49 +1,50 @@
-import React, { useState } from 'react'; // Importa useState para el estado de la calificación
-import { View, Text, FlatList, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native';
-// Si quieres añadir el efecto de sonido al botón "Más Información",
-// también necesitarías importar Audio de expo-av aquí, similar a HomeScreen.
-// import { Audio } from 'expo-av';
+import React, { useState } from 'react';
+import { View, Text, FlatList, StyleSheet, Image, TouchableOpacity, Alert, Dimensions } from 'react-native';
+import { Video } from 'expo-av';
+import miVideoCharcoVerdeLocal from '../assets/video/mivideo.mp4';
+
 
 const PlacesScreen = () => {
-    // Estado para almacenar la calificación de cada lugar.
-    // Usaremos un objeto donde la clave es el ID del lugar y el valor es la calificación.
     const [ratings, setRatings] = useState({});
 
-    // Función para manejar la calificación de estrellas
     const handleStarPress = (placeId, rating) => {
         setRatings(prevRatings => ({
             ...prevRatings,
-            [placeId]: rating, // Actualiza la calificación para este lugar
+            [placeId]: rating,
         }));
         Alert.alert("Calificación Guardada", `Has calificado ${rating} estrella(s) para el lugar ${placeId}`);
-        // Aquí podrías enviar la calificación a un backend o guardarla localmente si lo necesitas.
     };
 
-    // Función para mostrar el botón "Más Información"
     const handleMoreInfoPress = (placeName) => {
         Alert.alert("Más Información", `Aquí se mostraría información detallada sobre ${placeName}. Por ahora, es un placeholder.`);
-        // Aquí podrías navegar a una nueva pantalla con los detalles completos del lugar,
-        // o abrir una URL externa si la información está en una web.
     };
 
     const places = [
         {
             id: '1',
             name: 'Sendero La Romelia',
-            description: 'Un hermoso sendero cerca de Manizales.que permite a los visitantes caminar por senderos naturales que atraviesan cultivos agrícolas y áreas con orquídeas, bonsaís y cactus.',
+            description: 'Un hermoso sendero cerca de Manizales que permite a los visitantes caminar por senderos naturales que atraviesan cultivos agrícolas y áreas con orquídeas, bonsaís y cactus.',
             image: 'https://s2.wklcdn.com/image_121/3652175/132667424/84530213.400x300.jpg',
+            videoAsset: null,
         },
         {
             id: '2',
             name: 'Parque Nacional Natural Los Nevados',
             description: 'Impresionantes paisajes de alta montaña; En este recorrido podrán observar una maravillosa vista de frailejones, el páramo y una hermosa panorámica del colosal nevado del Ruiz.',
             image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSIart9n2fZlZYo2SAP6jwPlyb21Fj5RVRGtA&s',
+            videoAsset: null,
+        },
+        {
+            id: '3',
+            name: 'Ruta Charco Verde',
+            description: 'Charco Verde - peaje la estrella via manizales Neira: esta ubicado después del peaje la estrella, bajamos a la derecha con dirección Manizales Neira, vamos derecho por todo el camino hasta una finca donde se cultivan pimentones, de ahí a mano izquierda pasan por un Puente colgante continúan de nuevo a la izquierda y luego encontrarán una quebrada de ahí hacia la derecha suben por toda la Quebrada hasta llegar a charco verde.',
+            image: 'https://s1.wklcdn.com/image_483/14498730/165486221/103491397.700x525.jpg',
+            videoAsset: miVideoCharcoVerdeLocal,
         },
     ];
 
-    // Componente auxiliar para renderizar las estrellas
     const StarRating = ({ placeId, currentRating, onStarPress }) => {
-        const stars = [1, 2, 3, 4, 5]; // Puedes cambiar el número de estrellas aquí
+        const stars = [1, 2, 3, 4, 5];
         return (
             <View style={styles.starsContainer}>
                 {stars.map((star) => (
@@ -72,15 +73,23 @@ const PlacesScreen = () => {
                         <Text style={styles.placeName}>{item.name}</Text>
                         <Text style={styles.placeDescription}>{item.description}</Text>
 
-                        {/* Opciones de Calificación */}
+                        { }
+                        {item.videoAsset && (
+                            <Video
+                                source={item.videoAsset}
+                                style={styles.videoPlayer}
+                                useNativeControls
+                                resizeMode="contain"
+                            />
+                        )}
+
                         <Text style={styles.ratingLabel}>Califica este lugar:</Text>
                         <StarRating
                             placeId={item.id}
-                            currentRating={ratings[item.id] || 0} // Muestra 0 si no hay calificación
+                            currentRating={ratings[item.id] || 0}
                             onStarPress={handleStarPress}
                         />
 
-                        {/* Botón de Más Información */}
                         <TouchableOpacity
                             style={styles.moreInfoButton}
                             onPress={() => handleMoreInfoPress(item.name)}
@@ -95,11 +104,12 @@ const PlacesScreen = () => {
     );
 };
 
+const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 20,
-        backgroundColor: '#E0F2E0', // Un verde muy claro para el fondo
+        backgroundColor: '#E0F2E0',
     },
     title: {
         fontSize: 28,
@@ -109,23 +119,30 @@ const styles = StyleSheet.create({
         color: '#2E8B57',
     },
     placeItem: {
-        backgroundColor: '#FFFFFF', // Fondo blanco para cada elemento del lugar
+        backgroundColor: '#FFFFFF',
         padding: 15,
         marginBottom: 15,
         borderRadius: 10,
         borderWidth: 1,
-        borderColor: '#D3D3D3', // Borde gris claro
-        elevation: 3, // Sombra para Android
-        shadowColor: '#000', // Sombra para iOS
+        borderColor: '#D3D3D3',
+        elevation: 3,
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 3,
     },
     image: {
         width: '100%',
-        height: 180, // Aumenta la altura para que la imagen se vea mejor
+        height: 180,
         borderRadius: 8,
         marginBottom: 10,
+    },
+    videoPlayer: {
+        width: '100%',
+        height: width * 0.5625,
+        borderRadius: 8,
+        marginBottom: 10,
+        backgroundColor: 'black',
     },
     placeName: {
         fontWeight: 'bold',
@@ -138,7 +155,6 @@ const styles = StyleSheet.create({
         color: '#555555',
         marginBottom: 10,
     },
-    // --- Estilos para las estrellas ---
     ratingLabel: {
         fontSize: 14,
         color: '#666666',
@@ -146,31 +162,29 @@ const styles = StyleSheet.create({
         marginBottom: 5,
     },
     starsContainer: {
-        flexDirection: 'row', // Para que las estrellas estén en línea
+        flexDirection: 'row',
         marginBottom: 15,
     },
     starButton: {
-        padding: 5, // Área de toque más grande para las estrellas
+        padding: 5,
     },
     star: {
         fontSize: 24,
-        color: '#CCCCCC', // Color por defecto de estrella vacía
+        color: '#CCCCCC',
     },
     filledStar: {
-        color: '#FFD700', // Color dorado para estrellas llenas
+        color: '#FFD700',
     },
     emptyStar: {
-        color: '#CCCCCC', // Color gris para estrellas vacías
+        color: '#CCCCCC',
     },
-    // --- Estilos para el botón "Más Información" ---
     moreInfoButton: {
-        backgroundColor: '#2E8B57', // Verde oscuro
+        backgroundColor: '#2E8B57',
         paddingVertical: 10,
         paddingHorizontal: 15,
         borderRadius: 8,
         marginTop: 10,
-        alignSelf: 'flex-start', // Alinea el botón a la izquierda dentro del placeItem
-        // alignSelf: 'center', // Descomenta si quieres que el botón esté centrado
+        alignSelf: 'flex-start',
     },
     moreInfoButtonText: {
         color: 'white',

@@ -57,7 +57,7 @@ const HomeScreen = ({ navigation }) => {
         <ImageBackground
             source={require('../assets/fondo_inicio.jpg')}
             style={styles.background}
-            resizeMode="cover" // Esto asegura que la imagen cubra toda la pantalla sin distorsionarse
+            resizeMode="cover"
         >
             <View style={styles.container}>
                 <Text style={styles.title}>¡Bienvenido a Senderismo!</Text>
@@ -111,36 +111,31 @@ const HomeScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-    // Nuevo estilo para la imagen de fondo
+
     background: {
-        flex: 1, // Esto es crucial para que la imagen cubra toda la pantalla
+        flex: 1,
         width: '100%',
         height: '100%',
-        justifyContent: 'center', // Centra el contenido verticalmente dentro de la imagen
-        alignItems: 'center', // Centra el contenido horizontalmente dentro de la imagen
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     container: {
         flex: 1,
-        // Elimina el backgroundColor de aquí si quieres que la imagen de fondo se vea
-        // padding: 20, // Mantén tu padding si lo necesitas
-        justifyContent: 'center', // Esto centrará el contenido del container
-        alignItems: 'center',    // Esto centrará el contenido del container
-        width: '100%', // Asegura que el contenedor ocupe todo el ancho
-        // Opcional: para darle un poco de "aire" si el fondo es muy recargado
-        // backgroundColor: 'rgba(255, 255, 255, 0.5)', // Fondo semitransparente blanco
-        // borderRadius: 10, // Opcional: esquinas redondeadas para el contenido
+
+
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: '100%',
     },
     title: {
-        fontSize: 26,
+        fontSize: 30,
         fontWeight: 'bold',
         marginBottom: 40,
         textAlign: 'center',
-        color: '#2E8B57', // Un verde oscuro para el título
-        // Opcional: si la imagen de fondo es oscura, puedes cambiar el color del texto a blanco
-        // color: 'white',
-        // textShadowColor: 'black', // Opcional: sombra para que el texto resalte más
-        // textShadowOffset: { width: 1, height: 1 },
-        // textShadowRadius: 2,
+        color: '#006400 ',
+        textShadowColor: 'black',
+        textShadowOffset: { width: 1, height: 1 },
+        textShadowRadius: 2,
     },
     buttonContainer: {
         width: '80%',
